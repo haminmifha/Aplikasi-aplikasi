@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kalkulator</title>
+  <style>
+    :root {
+      --bg: #f5f6fa; --card: #fff; --text: #1f2430; --muted: #6b7280;
+      --accent: #4f6df5; --key: #eceef4;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #12141a; --card: #1c1f27; --text: #e8eaf0; --muted: #9aa1af;
+        --accent: #7d93ff; --key: #262a35; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif; background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .calc {
+      background: var(--card); border-radius: 16px; padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.1); width: 100%; max-width: 320px;
+    }
+    .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .top a { color: var(--muted); text-decoration: none; font-size: .9rem; }
+    .display {
+      background: var(--bg); border-radius: 10px; padding: 16px;
+      text-align: right; margin-bottom: 14px; min-height: 72px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .display .expr { color: var(--muted); font-size: .9rem; min-height: 1.2em; word-break: break-all; }
+    .display .result { font-size: 1.8rem; font-weight: 600; word-break: break-all; }
+    .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    button {
+      border: none; border-radius: 10px; padding: 14px 0; font-size: 1.1rem;
+      background: var(--key); color: var(--text); cursor: pointer;
+    }
+    button:hover { filter: brightness(.95); }
+    button.op { background: var(--accent); color: #fff; }
+    button.wide { grid-column: span 2; }
+  </style>
+</head>
+<body>
+  <div class="calc">
+    <div class="top"><a href="../">← Beranda</a><strong>Kalkulator</strong></div>
+    <div class="display">
+      <div class="expr" id="expr"></div>
+      <div class="result" id="result">0</div>
+    </div>
+    <div class="keys">
+      <button onclick="clearAll()">C</button>
+      <button onclick="deleteLast()">⌫</button>
+      <button class="op" onclick="append('%')">%</button>
+      <button class="op" onclick="append('/')">÷</button>
+
+      <button onclick="append('7')">7</button>
+      <button onclick="append('8')">8</button>
+      <button onclick="append('9')">9</button>
+      <button class="op" onclick="append('*')">×</button>
+
+      <button onclick="append('4')">4</button>
+      <button onclick="append('5')">5</button>
+      <button onclick="append('6')">6</button>
+      <button class="op" onclick="append('-')">−</button>
+
+      <button onclick="append('1')">1</button>
+      <button onclick="append('2')">2</button>
+      <button onclick="append('3')">3</button>
+      <button class="op" onclick="append('+')">+</button>
+
+      <button class="wide" onclick="append('0')">0</button>
+      <button onclick="append('.')">.</button>
+      <button class="op" onclick="hitung()">=</button>
+    </div>
+  </div>
+
+  <script>
+    let expr = "";
+
+    function render() {
+      document.getElementById("expr").textContent = expr;
+      document.getElementById("result").textContent = expr === "" ? "0" : expr;
+    }
+
+    function append(ch) {
+      // cegah dua operator berurutan atau dua titik dalam satu angka
+      const last = expr.slice(-1);
+      if ("+-*/%".includes(ch) && "+-*/%".includes(last)) return;
+      if (ch === "." && /\.\d*$/.test(expr.split(/[+\-*/%]/).pop())) return;
+      expr += ch;
+      render();
+    }
+
+    function deleteLast() { expr = expr.slice(0, -1); render(); }
+    function clearAll() { expr = ""; render(); }
+
+    function hitung() {
+      if (expr === "" || "+-*/%".includes(expr.slice(-1))) return;
+      try {
+        // expr hanya berisi angka dan +-*/% yang sudah difilter
+        const hasil = Function('"use strict"; return (' + expr + ")")();
+        if (!isFinite(hasil)) throw new Error();
+        expr = String(Math.round(hasil * 1e10) / 1e10);
+        render();
+      } catch {
+        document.getElementById("result").textContent = "Error";
+        expr = "";
+      }
+    }
+  </script>
+</body>
+</html>

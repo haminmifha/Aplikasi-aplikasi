@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catatan</title>
+  <style>
+    :root {
+      --bg: #f5f6fa; --card: #fff; --text: #1f2430; --muted: #6b7280;
+      --accent: #4f6df5; --accent-soft: #eef1fe; --danger: #e5484d;
+      --border: #e5e7eb; --chip: #f0f1f5;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #12141a; --card: #1c1f27; --text: #e8eaf0; --muted: #9aa1af;
+        --accent: #7d93ff; --accent-soft: #232a45; --danger: #ff6369;
+        --border: #2b2f3a; --chip: #262a34; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif; background: var(--bg); color: var(--text);
+      min-height: 100vh; padding: 32px 20px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .top a { color: var(--muted); text-decoration: none; font-size: .9rem; }
+    .subjudul { color: var(--muted); font-size: .85rem; margin-bottom: 18px; }
+
+    .banner {
+      background: var(--accent-soft); border-radius: 10px; padding: 12px 14px;
+      font-size: .85rem; color: var(--text); margin-bottom: 18px; line-height: 1.5;
+    }
+    .banner.ok { display: none; }
+    .banner code { background: var(--chip); border-radius: 4px; padding: 1px 5px; }
+
+    form { background: var(--card); border-radius: 14px; padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07); margin-bottom: 20px; }
+    input[type="text"], textarea {
+      width: 100%; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px; font: inherit; background: var(--bg); color: var(--text);
+    }
+    textarea { min-height: 100px; resize: vertical; margin-top: 10px; }
+    input:focus, textarea:focus { outline: 2px solid var(--accent); }
+    .baris { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+    .baris input[type="text"] { flex: 1; min-width: 140px; }
+    @media (max-width: 560px) {
+      .baris input[type="text"] { flex-basis: 100%; }
+      body { padding: 24px 14px; }
+    }
+    .tombol {
+      border: none; background: var(--accent); color: #fff; padding: 10px 20px;
+      border-radius: 10px; font-size: .95rem; cursor: pointer;
+    }
+    .tombol.batal { background: var(--chip); color: var(--text); }
+    .tombol.bahaya { background: var(--danger); }
+
+    .toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .toolbar input[type="search"] {
+      flex: 1; min-width: 160px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 9px 12px; font: inherit; background: var(--card); color: var(--text);
+    }
+    .toolbar select {
+      border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px;
+      font: inherit; background: var(--card); color: var(--text);
+    }
+
+    .chip {
+      display: inline-block; background: var(--chip); color: var(--muted);
+      border-radius: 999px; padding: 2px 10px; font-size: .75rem;
+    }
+    .chip.accent { background: var(--accent-soft); color: var(--accent); }
+
+    .catatan {
+      background: var(--card); border-radius: 14px; padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07); margin-bottom: 12px;
+    }
+    .catatan.pinned { border: 1px solid var(--accent); }
+    .kepala { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .kepala h3 { flex: 1; font-size: 1rem; word-break: break-word; }
+    .pin {
+      border: none; background: none; cursor: pointer; font-size: 1.1rem;
+      opacity: .45; padding: 2px 4px;
+    }
+    .pin.aktif { opacity: 1; }
+    .isi { white-space: pre-wrap; word-break: break-word; font-size: .95rem; line-height: 1.5; }
+    .kaki { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .kaki .tanggal { color: var(--muted); font-size: .75rem; flex: 1; }
+    .aksi {
+      border: none; background: var(--accent-soft); border-radius: 8px;
+      padding: 4px 10px; cursor: pointer; font-size: .8rem; color: var(--text);
+    }
+    .aksi.hapus { color: var(--danger); }
+    .kosong { color: var(--muted); text-align: center; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a href="../">← Beranda</a><strong>Catatan</strong></div>
+    <p class="subjudul" id="status">Memuat…</p>
+
+    <div class="banner" id="banner">
+      💾 Saat ini data hanya tersimpan di <b>browser ini</b>. Agar bisa dibuka dari PC &amp; HP,
+      isi <code>SUPABASE_URL</code> dan <code>SUPABASE_KEY</code> di file
+      <code>catatan/index.html</code> (petunjuk ada di komentar dalam file tersebut).
+    </div>
+
+    <form id="form" autocomplete="off">
+      <input type="text" id="judul" placeholder="Judul catatan" maxlength="120">
+      <textarea id="isi" placeholder="Tulis catatan di sini... (Ctrl+Enter untuk simpan)"></textarea>
+      <div class="baris">
+        <input type="text" id="kategori" placeholder="Kategori (misal: ide, kerja)" maxlength="40" list="daftar-kategori">
+        <datalist id="daftar-kategori"></datalist>
+        <button type="submit" class="tombol" id="btn-simpan">+ Tambah Catatan</button>
+        <button type="button" class="tombol batal" id="btn-batal" hidden>Batal</button>
+      </div>
+    </form>
+
+    <div class="toolbar">
+      <input type="search" id="cari" placeholder="🔍 Cari catatan...">
+      <select id="filter">
+        <option value="">Semua kategori</option>
+      </select>
+    </div>
+
+    <div id="daftar"></div>
+  </div>
+
+  <script>
+    // ============================================================
+    // MODE 1: localStorage (default) — data tersimpan di browser ini saja.
+    // MODE 2: Supabase (opsional) — data tersimpan online, bisa diakses
+    //         dari PC maupun HP di mana saja. Cara mengaktifkan:
+    //         1. Daftar gratis di https://supabase.com, buat project
+    //         2. Di SQL Editor Supabase, jalankan:
+    //              create table catatan (
+    //                id bigint generated always as identity primary key,
+    //                judul text not null default '',
+    //                isi text not null default '',
+    //                kategori text not null default '',
+    //                pinned boolean not null default false,
+    //                created_at timestamptz not null default now(),
+    //                updated_at timestamptz not null default now()
+    //              );
+    //              alter table catatan enable row level security;
+    //              create policy "akses publik" on catatan
+    //                for all using (true) with check (true);
+    //         3. Ambil Project URL & anon key dari Settings > API,
+    //            lalu isi SUPABASE_URL dan SUPABASE_KEY di bawah ini.
+    //            (anon key aman dipakai di frontend karena tabel dilindungi
+    //             RLS dengan policy di atas; jika ingin privat, hubungkan
+    //             Supabase Auth terlebih dahulu.)
+    // ============================================================
+    const SUPABASE_URL = "https://vzsuyegzqudmywklvlaz.supabase.co";  // contoh: "https://xxxx.supabase.co"
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c3V5ZWd6cXVkbXl3a2x2bGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMzc5NTAsImV4cCI6MjEwMzgxMzk1MH0.cGbhKIl5fYw_duVjzwoSVqbR8RpzVbxb6B2xYNUKu0g";  // anon public key
+
+    const pakaiSupabase = SUPABASE_URL !== "" && SUPABASE_KEY !== "";
+    const KUNCI_LOKAL = "catatan";
+
+    let catatan = [];      // semua catatan
+    let editId = null;     // id catatan yang sedang diedit (null = mode tambah)
+
+    // ---------- Penyimpanan ----------
+    async function muat() {
+      if (pakaiSupabase) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/catatan?select=*&order=pinned.desc,updated_at.desc`, {
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        });
+        if (!res.ok) throw new Error("Gagal memuat dari Supabase: " + res.status);
+        return res.json();
+      }
+      return JSON.parse(localStorage.getItem(KUNCI_LOKAL) || "[]");
+    }
+
+    async function buatCatatan(data) {
+      if (pakaiSupabase) {
+        await fetch(`${SUPABASE_URL}/rest/v1/catatan`, {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json", Prefer: "return=minimal",
+          },
+          body: JSON.stringify(data),
+        });
+      } else {
+        const semua = JSON.parse(localStorage.getItem(KUNCI_LOKAL) || "[]");
+        semua.unshift({ id: Date.now(), pinned: false, ...data,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        localStorage.setItem(KUNCI_LOKAL, JSON.stringify(semua));
+      }
+    }
+
+    async function ubahCatatan(id, data) {
+      if (pakaiSupabase) {
+        await fetch(`${SUPABASE_URL}/rest/v1/catatan?id=eq.${id}`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json", Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ ...data, updated_at: new Date().toISOString() }),
+        });
+      } else {
+        const semua = JSON.parse(localStorage.getItem(KUNCI_LOKAL) || "[]");
+        const c = semua.find((x) => x.id === id);
+        if (c) Object.assign(c, data);
+        localStorage.setItem(KUNCI_LOKAL, JSON.stringify(semua));
+      }
+    }
+
+    async function hapusCatatan(id) {
+      if (pakaiSupabase) {
+        await fetch(`${SUPABASE_URL}/rest/v1/catatan?id=eq.${id}`, {
+          method: "DELETE",
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        });
+      } else {
+        const semua = JSON.parse(localStorage.getItem(KUNCI_LOKAL) || "[]");
+        localStorage.setItem(KUNCI_LOKAL, JSON.stringify(semua.filter((x) => x.id !== id)));
+      }
+    }
+
+    // ---------- Tampilan ----------
+    const $ = (id) => document.getElementById(id);
+    const lolos = (c) => {
+      const q = $("cari").value.trim().toLowerCase();
+      const f = $("filter").value;
+      const cocokQ = !q || (c.judul || "").toLowerCase().includes(q) || (c.isi || "").toLowerCase().includes(q);
+      return cocokQ && (!f || c.kategori === f);
+    };
+    const tanggal = (iso) => {
+      if (!iso) return "";
+      try { return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }); }
+      catch { return ""; }
+    };
+
+    function render() {
+      const daftar = $("daftar");
+      daftar.innerHTML = "";
+      const tampil = catatan.filter(lolos)
+        .sort((a, b) => (b.pinned - a.pinned) || new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+
+      // daftar kategori untuk filter & saran input
+      const kategori = [...new Set(catatan.map((c) => c.kategori).filter(Boolean))].sort();
+      const filter = $("filter");
+      const terpilih = filter.value;
+      filter.innerHTML = '<option value="">Semua kategori</option>' +
+        kategori.map((k) => `<option${k === terpilih ? " selected" : ""}>${k}</option>`).join("");
+      $("daftar-kategori").innerHTML = kategori.map((k) => `<option value="${k}">`).join("");
+
+      if (tampil.length === 0) {
+        daftar.innerHTML = `<p class="kosong">${catatan.length === 0 ? "Belum ada catatan." : "Tidak ada catatan yang cocok."}</p>`;
+        return;
+      }
+
+      tampil.forEach((c) => {
+        const div = document.createElement("div");
+        div.className = "catatan" + (c.pinned ? " pinned" : "");
+
+        const kepala = document.createElement("div");
+        kepala.className = "kepala";
+        const h3 = document.createElement("h3");
+        h3.textContent = c.judul || "(tanpa judul)";
+        const pin = document.createElement("button");
+        pin.className = "pin" + (c.pinned ? " aktif" : "");
+        pin.title = c.pinned ? "Lepas pin" : "Pin catatan";
+        pin.textContent = c.pinned ? "📌" : "📍";
+        pin.onclick = () => aksiPin(c);
+        kepala.append(h3, pin);
+
+        const isi = document.createElement("p");
+        isi.className = "isi";
+        isi.textContent = c.isi;
+
+        const kaki = document.createElement("div");
+        kaki.className = "kaki";
+        if (c.kategori) {
+          const chip = document.createElement("span");
+          chip.className = "chip accent";
+          chip.textContent = c.kategori;
+          kaki.appendChild(chip);
+        }
+        const tgl = document.createElement("span");
+        tgl.className = "tanggal";
+        tgl.textContent = tanggal(c.updated_at || c.created_at);
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "aksi";
+        btnEdit.textContent = "Edit";
+        btnEdit.onclick = () => mulaiEdit(c);
+        const btnHapus = document.createElement("button");
+        btnHapus.className = "aksi hapus";
+        btnHapus.textContent = "Hapus";
+        btnHapus.onclick = () => aksiHapus(c);
+        kaki.append(tgl, btnEdit, btnHapus);
+
+        div.append(kepala, isi, kaki);
+        daftar.appendChild(div);
+      });
+    }
+
+    async function segarkan() {
+      try {
+        catatan = await muat();
+        $("status").textContent = pakaiSupabase
+          ? `☁️ Tersimpan online (Supabase) — ${catatan.length} catatan`
+          : `💾 Tersimpan di browser ini — ${catatan.length} catatan`;
+        $("banner").classList.toggle("ok", pakaiSupabase);
+        render();
+      } catch (e) {
+        $("status").textContent = "⚠️ " + e.message;
+      }
+    }
+
+    // ---------- Aksi ----------
+    async function simpanForm(e) {
+      e.preventDefault();
+      const judul = $("judul").value.trim();
+      const isi = $("isi").value.trim();
+      const kategori = $("kategori").value.trim();
+      if (!judul && !isi) return;
+      const data = { judul, isi, kategori };
+      if (editId !== null) {
+        await ubahCatatan(editId, data);
+        batalEdit();
+      } else {
+        await buatCatatan(data);
+        $("form").reset();
+      }
+      segarkan();
+    }
+
+    function mulaiEdit(c) {
+      editId = c.id;
+      $("judul").value = c.judul || "";
+      $("isi").value = c.isi || "";
+      $("kategori").value = c.kategori || "";
+      $("btn-simpan").textContent = "Simpan Perubahan";
+      $("btn-batal").hidden = false;
+      $("judul").focus();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function batalEdit() {
+      editId = null;
+      $("form").reset();
+      $("btn-simpan").textContent = "+ Tambah Catatan";
+      $("btn-batal").hidden = true;
+    }
+
+    async function aksiHapus(c) {
+      const nama = c.judul || (c.isi || "").slice(0, 30) || "(tanpa judul)";
+      if (!confirm(`Hapus catatan "${nama}"?`)) return;
+      if (editId === c.id) batalEdit();
+      await hapusCatatan(c.id);
+      segarkan();
+    }
+
+    async function aksiPin(c) {
+      await ubahCatatan(c.id, { pinned: !c.pinned });
+      segarkan();
+    }
+
+    // ---------- Event ----------
+    $("form").addEventListener("submit", simpanForm);
+    $("btn-batal").addEventListener("click", batalEdit);
+    $("cari").addEventListener("input", render);
+    $("filter").addEventListener("change", render);
+    $("isi").addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key === "Enter") $("form").requestSubmit();
+    });
+
+    segarkan();
+  </script>
+</body>
+</html>
