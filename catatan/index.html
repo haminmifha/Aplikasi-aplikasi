@@ -90,11 +90,55 @@
     }
     .aksi.hapus { color: var(--danger); }
     .kosong { color: var(--muted); text-align: center; margin-top: 24px; }
+
+    /* ---------- Login ---------- */
+    .login-overlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 10;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .login-overlay[hidden] { display: none; }
+    .login-box {
+      background: var(--card); border-radius: 16px; padding: 28px 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.12); width: 100%; max-width: 360px;
+    }
+    .login-box h2 { font-size: 1.2rem; margin-bottom: 4px; }
+    .login-box .ket { color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+    .login-box input {
+      width: 100%; border: 1px solid var(--border); border-radius: 10px;
+      padding: 11px 12px; font: inherit; background: var(--bg); color: var(--text);
+      margin-bottom: 10px;
+    }
+    .login-box input:focus { outline: 2px solid var(--accent); }
+    .login-box .tombol { width: 100%; margin-bottom: 10px; }
+    .pesan { font-size: .85rem; min-height: 1.2em; }
+    .pesan.salah { color: var(--danger); }
+    .pesan.ok { color: var(--accent); }
+    .user-info { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); }
+    .user-info button {
+      border: none; background: var(--chip); color: var(--text);
+      border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: .8rem;
+    }
   </style>
 </head>
 <body>
+  <div class="login-overlay" id="layar-login" hidden>
+    <form class="login-box" id="form-login" autocomplete="on">
+      <h2>🔑 Masuk ke Catatan</h2>
+      <p class="ket">Catatan Anda bersifat pribadi — masuk dengan akun Supabase Anda.</p>
+      <input type="email" id="email" placeholder="email" required>
+      <input type="password" id="password" placeholder="Password" required minlength="6">
+      <button type="submit" class="tombol" id="btn-masuk">Masuk</button>
+      <button type="button" class="tombol batal" id="btn-daftar">Buat Akun Baru</button>
+      <p class="pesan" id="pesan-login"></p>
+    </form>
+  </div>
+
   <div class="wrap">
     <div class="top"><a href="../">← Beranda</a><strong>Catatan</strong></div>
+    <div class="user-info" id="user-info" hidden>
+      <span id="user-email"></span>
+      <button id="btn-keluar">Keluar</button>
+    </div>
     <p class="subjudul" id="status">Memuat…</p>
 
     <div class="banner" id="banner">
@@ -141,8 +185,8 @@
     //                updated_at timestamptz not null default now()
     //              );
     //              alter table catatan enable row level security;
-    //              create policy "akses publik" on catatan
-    //                for all using (true) with check (true);
+    //              create policy "khusus user login" on catatan
+    //                for all to authenticated using (true) with check (true);
     //         3. Ambil Project URL & anon key dari Settings > API,
     //            lalu isi SUPABASE_URL dan SUPABASE_KEY di bawah ini.
     //            (anon key aman dipakai di frontend karena tabel dilindungi
@@ -154,6 +198,103 @@
 
     const pakaiSupabase = SUPABASE_URL !== "" && SUPABASE_KEY !== "";
     const KUNCI_LOKAL = "catatan";
+    const KUNCI_SESI = "catatan_sesi";
+
+    // ---------- Autentikasi (Supabase Auth) ----------
+    // Tabel `catatan` dilindungi RLS "khusus user login", jadi semua permintaan
+    // data wajib membawa access_token dari sesi login (email + password).
+    let sesi = JSON.parse(localStorage.getItem(KUNCI_SESI) || "null");
+
+    const headersData = () => ({
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${sesi.access_token}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    });
+
+    async function perbaruiToken() {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: sesi.refresh_token }),
+      });
+      if (!res.ok) throw new Error("Sesi berakhir");
+      simpanSesi(await res.json());
+    }
+
+    async function apiData(url, opsi = {}) {
+      // coba kirim; kalau token kedaluwarsa (401), segarkan sekali lalu ulangi
+      const kirim = () => fetch(url, { ...opsi, headers: headersData() });
+      let res = await kirim();
+      if (res.status === 401 && sesi.refresh_token) {
+        await perbaruiToken();
+        res = await kirim();
+      }
+      return res;
+    }
+
+    function simpanSesi(s) {
+      sesi = s;
+      localStorage.setItem(KUNCI_SESI, JSON.stringify({
+        access_token: s.access_token,
+        refresh_token: s.refresh_token,
+        user: s.user,
+      }));
+    }
+
+    function pesanSalah(data) {
+      const inggris = data.error_description || data.msg || "";
+      const terjemahan = {
+        "Email not confirmed": "Email belum dikonfirmasi. Buka dashboard Supabase → Authentication → Users → titik tiga (⋮) → Confirm user (lihat README).",
+        "Invalid login credentials": "Email atau password salah.",
+        "User already registered": "Email sudah terdaftar — silakan masuk.",
+        "Password should be at least 6 characters": "Password minimal 6 karakter.",
+        "Email address is invalid": "Format email tidak valid.",
+      };
+      return terjemahan[inggris] || inggris || "Terjadi kesalahan, coba lagi.";
+    }
+
+    async function masuk() {
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(pesanSalah(data));
+      simpanSesi(data);
+    }
+
+    async function daftar() {
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(pesanSalah(data));
+      if (data.access_token) { simpanSesi(data); return; }
+      // Supabase menunggu konfirmasi email — konfirmasi manual lewat dashboard:
+      // Authentication > Users > titik tiga (⋮) > Confirm user (atau matikan
+      // "Confirm email" di Authentication > Providers > Email).
+      throw new Error("Akun sudah dibuat, tapi menunggu konfirmasi email. Buka dashboard Supabase → Authentication → Users → titik tiga (⋮) → Confirm user (lihat README).");
+    }
+
+    async function keluar() {
+      try {
+        await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+          method: "POST",
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${sesi.access_token}` },
+        });
+      } catch {}
+      localStorage.removeItem(KUNCI_SESI);
+      sesi = null;
+      tampilkanLogin();
+    }
 
     let catatan = [];      // semua catatan
     let editId = null;     // id catatan yang sedang diedit (null = mode tambah)
@@ -161,9 +302,7 @@
     // ---------- Penyimpanan ----------
     async function muat() {
       if (pakaiSupabase) {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/catatan?select=*&order=pinned.desc,updated_at.desc`, {
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-        });
+        const res = await apiData(`${SUPABASE_URL}/rest/v1/catatan?select=*&order=pinned.desc,updated_at.desc`);
         if (!res.ok) throw new Error("Gagal memuat dari Supabase: " + res.status);
         return res.json();
       }
@@ -172,12 +311,9 @@
 
     async function buatCatatan(data) {
       if (pakaiSupabase) {
-        await fetch(`${SUPABASE_URL}/rest/v1/catatan`, {
+        await apiData(`${SUPABASE_URL}/rest/v1/catatan`, {
           method: "POST",
-          headers: {
-            apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-            "Content-Type": "application/json", Prefer: "return=minimal",
-          },
+          headers: headersData(),
           body: JSON.stringify(data),
         });
       } else {
@@ -190,12 +326,9 @@
 
     async function ubahCatatan(id, data) {
       if (pakaiSupabase) {
-        await fetch(`${SUPABASE_URL}/rest/v1/catatan?id=eq.${id}`, {
+        await apiData(`${SUPABASE_URL}/rest/v1/catatan?id=eq.${id}`, {
           method: "PATCH",
-          headers: {
-            apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-            "Content-Type": "application/json", Prefer: "return=minimal",
-          },
+          headers: headersData(),
           body: JSON.stringify({ ...data, updated_at: new Date().toISOString() }),
         });
       } else {
@@ -208,9 +341,9 @@
 
     async function hapusCatatan(id) {
       if (pakaiSupabase) {
-        await fetch(`${SUPABASE_URL}/rest/v1/catatan?id=eq.${id}`, {
+        await apiData(`${SUPABASE_URL}/rest/v1/catatan?id=eq.${id}`, {
           method: "DELETE",
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+          headers: headersData(),
         });
       } else {
         const semua = JSON.parse(localStorage.getItem(KUNCI_LOKAL) || "[]");
@@ -296,8 +429,22 @@
       });
     }
 
+    function tampilkanLogin() {
+      $("layar-login").hidden = false;
+      $("user-info").hidden = true;
+      $("status").textContent = "🔐 Silakan masuk untuk melihat catatan Anda.";
+    }
+
+    function tampilkanAplikasi() {
+      $("layar-login").hidden = true;
+      $("user-info").hidden = false;
+      $("user-email").textContent = (sesi.user && sesi.user.email) || "";
+    }
+
     async function segarkan() {
+      if (pakaiSupabase && !sesi) { tampilkanLogin(); return; }
       try {
+        if (pakaiSupabase) tampilkanAplikasi();
         catatan = await muat();
         $("status").textContent = pakaiSupabase
           ? `☁️ Tersimpan online (Supabase) — ${catatan.length} catatan`
@@ -305,6 +452,11 @@
         $("banner").classList.toggle("ok", pakaiSupabase);
         render();
       } catch (e) {
+        if (String(e.message).includes("Sesi berakhir")) {
+          localStorage.removeItem(KUNCI_SESI); sesi = null;
+          tampilkanLogin();
+          return;
+        }
         $("status").textContent = "⚠️ " + e.message;
       }
     }
@@ -366,6 +518,42 @@
     $("isi").addEventListener("keydown", (e) => {
       if (e.ctrlKey && e.key === "Enter") $("form").requestSubmit();
     });
+
+    $("form-login").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const pesan = $("pesan-login");
+      pesan.className = "pesan";
+      pesan.textContent = "Memproses…";
+      $("btn-masuk").disabled = true;
+      try {
+        await masuk();
+        pesan.textContent = "";
+        segarkan();
+      } catch (err) {
+        pesan.className = "pesan salah";
+        pesan.textContent = err.message;
+      }
+      $("btn-masuk").disabled = false;
+    });
+
+    $("btn-daftar").addEventListener("click", async () => {
+      const pesan = $("pesan-login");
+      pesan.className = "pesan";
+      pesan.textContent = "Memproses…";
+      $("btn-daftar").disabled = true;
+      try {
+        await daftar();
+        pesan.className = "pesan ok";
+        pesan.textContent = "";
+        segarkan();
+      } catch (err) {
+        pesan.className = "pesan salah";
+        pesan.textContent = err.message;
+      }
+      $("btn-daftar").disabled = false;
+    });
+
+    $("btn-keluar").addEventListener("click", keluar);
 
     segarkan();
   </script>

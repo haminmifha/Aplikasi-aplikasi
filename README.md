@@ -74,6 +74,22 @@ App `catatan/` sudah siap dua mode:
    create policy "akses publik" on catatan
      for all using (true) with check (true);
    ```
+
+### Mengaktifkan login (email + password) — catatan jadi privat
+
+Setelah mode login aktif di aplikasi, keamanan tabel perlu diubah dari "akses publik" menjadi "khusus user login":
+
+1. Di **SQL Editor** Supabase, jalankan:
+   ```sql
+   drop policy "akses publik" on catatan;
+   create policy "khusus user login" on catatan
+     for all to authenticated using (true) with check (true);
+   ```
+2. Aplikasi catatan kini menampilkan halaman masuk. Buat akun lewat tombol **Buat Akun Baru** (format email harus valid dengan `@`, tapi boleh karangan, misal `nama@contoh.app`).
+3. Karena emailnya karangan, konfirmasi otomatis tidak akan sampai. Konfirmasi manual dari dashboard:
+   **Authentication → Users** → cari emailnya → klik titik tiga (⋮) di kanan → **Confirm user**.
+   (Alternatif: **Authentication → Providers → Email** → matikan "Confirm email" supaya pendaftaran tanpa email nyata langsung aktif.)
+4. Setelah itu, masuk dengan email + password — hanya Anda yang bisa melihat dan mengubah catatan, dari perangkat mana pun.
 3. Buka **Settings → API** (atau Project Settings → Data API), salin:
    - **Project URL**, contoh `https://xxxx.supabase.co`
    - **anon public key**
