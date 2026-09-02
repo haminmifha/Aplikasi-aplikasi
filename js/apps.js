@@ -22,8 +22,8 @@ const APPS = [
     id: "todo",
     nama: "Daftar Tugas",
     ikon: "✅",
-    deskripsi: "Kelola daftar tugas harian.",
-    soon: true, // ganti ke false setelah folder todo/ dibuat
+    deskripsi: "Kelola daftar tugas harian: prioritas, tenggat, pencarian & filter. Bisa diakses dari PC maupun HP.",
+    soon: false,
   },
 ];
 
