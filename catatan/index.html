@@ -433,30 +433,30 @@
         isi.className = "isi";
         isi.textContent = c.isi;
 
-        div.append(kepala, isi);
-        if ((c.isi || "").length > BATAS_POTONG) div.append(buatToggle(c, isi));
-        div.append(kaki);
+      const kaki = document.createElement("div");
+      kaki.className = "kaki";
+      if (c.kategori) {
+        const chip = document.createElement("span");
+        chip.className = "chip accent";
+        chip.textContent = c.kategori;
+        kaki.appendChild(chip);
+      }
+      const tgl = document.createElement("span");
+      tgl.className = "tanggal";
+      tgl.textContent = tanggal(c.updated_at || c.created_at);
+      const btnEdit = document.createElement("button");
+      btnEdit.className = "aksi";
+      btnEdit.textContent = "Edit";
+      btnEdit.onclick = () => mulaiEdit(c);
+      const btnHapus = document.createElement("button");
+      btnHapus.className = "aksi hapus";
+      btnHapus.textContent = "Hapus";
+      btnHapus.onclick = () => aksiHapus(c);
+      kaki.append(tgl, btnEdit, btnHapus);
 
-        const kaki = document.createElement("div");
-        kaki.className = "kaki";
-        if (c.kategori) {
-          const chip = document.createElement("span");
-          chip.className = "chip accent";
-          chip.textContent = c.kategori;
-          kaki.appendChild(chip);
-        }
-        const tgl = document.createElement("span");
-        tgl.className = "tanggal";
-        tgl.textContent = tanggal(c.updated_at || c.created_at);
-        const btnEdit = document.createElement("button");
-        btnEdit.className = "aksi";
-        btnEdit.textContent = "Edit";
-        btnEdit.onclick = () => mulaiEdit(c);
-        const btnHapus = document.createElement("button");
-        btnHapus.className = "aksi hapus";
-        btnHapus.textContent = "Hapus";
-        btnHapus.onclick = () => aksiHapus(c);
-        kaki.append(tgl, btnEdit, btnHapus);
+      div.append(kepala, isi);
+      if ((c.isi || "").length > BATAS_POTONG) div.append(buatToggle(c, isi));
+      div.append(kaki);
 
         daftar.appendChild(div);
       });

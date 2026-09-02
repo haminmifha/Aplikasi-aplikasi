@@ -506,6 +506,7 @@
     }
 
     async function segarkan() {
+      $("banner").classList.toggle("ok", pakaiSupabase);
       if (pakaiSupabase && !sesi) { tampilkanLogin(); return; }
       try {
         if (pakaiSupabase) tampilkanAplikasi();
